@@ -9,7 +9,7 @@ import type { ModelCatalog } from "./types.js";
  * or redistributing any third-party scores.
  */
 export const MODEL_CATALOG: ModelCatalog = {
-  version: "2026-08-05",
+  version: "2026-09-17",
   provenance:
     "Curated editorial intelligence buckets informed by public provider materials and leaderboards, including Artificial Analysis (https://artificialanalysis.ai/). No third-party scores are reproduced.",
   entries: [
@@ -95,6 +95,20 @@ export const MODEL_CATALOG: ModelCatalog = {
       id: "kimi-k1.5",
       label: "Kimi K1.5",
       intelligence: "low",
+    },
+    {
+      provider: "omniroute",
+      id: "cursor/gemini-3.8",
+      label: "Cursor Gemini 3.8",
+      intelligence: "high",
+      aliases: ["cursor-gemini-3.8"],
+    },
+    {
+      provider: "omniroute",
+      id: "cursor/grok-4.6",
+      label: "Cursor Grok 4.6",
+      intelligence: "high",
+      aliases: ["cursor-grok-4.6"],
     },
   ],
 };

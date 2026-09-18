@@ -146,6 +146,8 @@ function semanticsFor(
       );
     case "cursor":
       return cursorSemantics(provider.windows, generatedAt);
+    case "omniroute":
+      return omnirouteSemantics(provider.windows, generatedAt);
     case "copilot":
       return unknownSemantics(
         provider.windows,
@@ -467,6 +469,71 @@ function cursorSemantics(
     effectiveAvailability,
     "Cursor's included, auto, API usage, and spend-limit windows jointly bound every model, so effective remaining is the minimum across those named windows. The Grok Bot weekly window is an independent resource.",
   );
+}
+/**
+ * OmniRoute seats are independent Cursor account pools: one scope per
+ * connection, named `seat:<slug>`. Within a seat the recognized quota keys
+ * (OmniRoute's Cursor fetcher emits Total / Auto + Composer / API, all views
+ * of the seat's monthly plan usage) jointly bound it, so effective remaining
+ * is the minimum across them - the conservative reading that never overstates
+ * headroom. A seat whose usage read failed carries an `usage` placeholder
+ * window, and any quota key outside the recognized set is unresolved rather
+ * than folded into a bound quota-axi cannot verify.
+ */
+const OMNIROUTE_SEAT_WINDOW = /^seat:([^:]+):(.+)$/;
+const OMNIROUTE_SEAT_QUOTA_KEYS: Record<string, true> = {
+  total: true,
+  auto_composer: true,
+  api: true,
+};
+
+function omnirouteSemantics(
+  windows: QuotaWindow[],
+  generatedAt: string,
+): QuotaSemantics {
+  const seats = new Map<string, QuotaWindow[]>();
+  const unresolvedWindowIds: string[] = [];
+  for (const window of windows) {
+    const match = OMNIROUTE_SEAT_WINDOW.exec(window.id);
+    const slug = match?.[1];
+    const key = match?.[2];
+    if (!slug || !key || !OMNIROUTE_SEAT_QUOTA_KEYS[key]) {
+      unresolvedWindowIds.push(window.id);
+      if (slug) {
+        const list = seats.get(slug) ?? [];
+        seats.set(slug, list);
+      }
+      continue;
+    }
+    const list = seats.get(slug) ?? [];
+    list.push(window);
+    seats.set(slug, list);
+  }
+
+  const effectiveAvailability: EffectiveAvailability[] = [];
+  for (const [slug, seatWindows] of seats) {
+    const scope = `seat:${slug}`;
+    const seatUnresolved = unresolvedWindowIds.filter((id) =>
+      id.startsWith(`${scope}:`),
+    );
+    effectiveAvailability.push(
+      seatUnresolved.length > 0
+        ? unresolvedAvailability(scope, seatWindows, seatUnresolved)
+        : availability(scope, seatWindows, generatedAt),
+    );
+  }
+
+  const description =
+    "Each OmniRoute connection is an independent Cursor seat with its own quota pool. A seat's Total, Auto + Composer, and API windows are views of that seat's monthly plan usage and jointly bound it, so effective remaining is the minimum across them. Seats with unreadable usage or unfamiliar quota keys stay unresolved rather than claiming a bound.";
+  if (unresolvedWindowIds.length > 0) {
+    return {
+      status: "partial",
+      description,
+      effectiveAvailability,
+      unresolvedWindowIds,
+    };
+  }
+  return knownSemantics(effectiveAvailability, description);
 }
 
 function zaiSemantics(

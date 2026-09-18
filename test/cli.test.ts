@@ -66,6 +66,7 @@ describe("CLI flag parsing", () => {
       "agy",
       "alibaba",
       "opencode-go",
+      "omniroute",
     ]);
   });
 
@@ -103,6 +104,7 @@ describe("CLI flag parsing", () => {
           "agy",
           "alibaba",
           "opencode-go",
+          "omniroute",
         ],
         json: true,
         full: true,
@@ -884,6 +886,7 @@ describe("default TOON decision blocks", () => {
     PROVIDERS.agy = providerWithQuota(unavailableAgyQuota());
     PROVIDERS.alibaba = providerWithQuota(freshAlibabaQuota());
     PROVIDERS["opencode-go"] = providerWithQuota(freshOpenCodeGoQuota());
+    PROVIDERS.omniroute = providerWithQuota(unavailableOmniRouteQuota());
 
     const output = await capture([]);
     const named = new Set([
@@ -900,6 +903,7 @@ describe("default TOON decision blocks", () => {
       "cursor",
       "grok",
       "kimi",
+      "omniroute",
       "opencode-go",
       "zai",
     ]);
@@ -1831,6 +1835,20 @@ function unavailableAgyQuota(): ProviderQuota {
       stale: false,
       error: "Antigravity/agy is not running",
       sourcesTried: ["loopback"],
+    },
+  };
+}
+function unavailableOmniRouteQuota(): ProviderQuota {
+  return {
+    provider: "omniroute",
+    label: "OmniRoute",
+    source: "unavailable",
+    windows: [],
+    state: {
+      status: "auth_required",
+      stale: false,
+      error: "OMNIROUTE_API_KEY not set",
+      sourcesTried: ["omniroute-api"],
     },
   };
 }
