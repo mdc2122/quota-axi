@@ -1,7 +1,7 @@
 import { deleteCachedProvider, readCachedProvider } from "../cache.js";
 import { providerFetch } from "../lib/http.js";
 import { usableLiteralSecret, redactSecret } from "../lib/secret.js";
-import { clampPercent, nowIso } from "../lib/time.js";
+import { clampPercent, nowIso, retryAfterToIso } from "../lib/time.js";
 import type {
   AuthProviderReport,
   ProviderAdapter,
@@ -341,7 +341,9 @@ function seatWindows(
     const keySlug = normalizeKey(key);
     const percentUsed = quotaPercentUsed(quota);
     const resetsAt = isoValue(quota.resetAt);
-    const isUsd = quota.currency === undefined || quota.currency === "usd";
+    const isUsd =
+      typeof quota.currency === "string" &&
+      quota.currency.trim().toLowerCase() === "usd";
     const total = numberValue(quota.total);
     const used = numberValue(quota.used);
     windows.push(
@@ -441,9 +443,6 @@ class OmniRouteRateLimitError extends Error {
   retryAfter?: string;
   constructor(retryAfterHeader: string | null) {
     super("OmniRoute rate limited the request");
-    const seconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-    if (Number.isFinite(seconds) && seconds >= 0) {
-      this.retryAfter = new Date(Date.now() + seconds * 1000).toISOString();
-    }
+    this.retryAfter = retryAfterToIso(retryAfterHeader);
   }
 }

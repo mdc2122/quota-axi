@@ -84,6 +84,7 @@ const SEAT_ONE_USAGE = {
     Total: {
       used: 12.5,
       total: 50,
+      currency: "USD",
       remaining: 37.5,
       remainingPercentage: 75,
       resetAt: "2026-10-01T00:00:00.000Z",
