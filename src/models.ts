@@ -185,13 +185,15 @@ function availabilityFor(
     );
     if (found) return found;
   }
-  return availability.find(
-    (candidate) =>
-      candidate.scope === "all_models" || candidate.scope === "all_products",
-  ) ??
+  return (
+    availability.find(
+      (candidate) =>
+        candidate.scope === "all_models" || candidate.scope === "all_products",
+    ) ??
     (entry.provider === "omniroute"
       ? availability.find((candidate) => candidate.scope.startsWith("seat:"))
-      : undefined);
+      : undefined)
+  );
 }
 
 function unmatchedModelWindowIds(

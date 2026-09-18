@@ -635,9 +635,10 @@ Default model order is deterministic and non-preferential: provider, then model 
 
 Auth source entries can include `credentialPresent` when a source is not genuinely absent, including when a read failure prevents a more precise classification.
 
-| Name              | Values                                                                                                                                                                                                                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth source names | `oauth-file`, `keychain`, `auth-json`, `auth-env`, `apps-json`, `gh:hosts.yml`, `state-vscdb`, `cli-keychain`, `cli-authfile`, `cli-rpc`, `pi:openai-codex`, `pi:kimi-coding`, `pi:xai`, `pi:zai`, `kimi-code-cli`, `opencode:auth.json`, `bl-cli`, `omniroute-api`, and `loopback` |
+| Name                 | Values                                                                                                                                                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth source statuses | `available`, `missing`, `invalid`, `expired`, `skipped`, or `error`                                                                                                                                                                                                                 |
+| Auth source names    | `oauth-file`, `keychain`, `auth-json`, `auth-env`, `apps-json`, `gh:hosts.yml`, `state-vscdb`, `cli-keychain`, `cli-authfile`, `cli-rpc`, `pi:openai-codex`, `pi:kimi-coding`, `pi:xai`, `pi:zai`, `kimi-code-cli`, `opencode:auth.json`, `bl-cli`, `omniroute-api`, and `loopback` |
 
 ## Security Posture
 
