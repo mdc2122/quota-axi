@@ -318,6 +318,28 @@ describe("OmniRoute provider", () => {
     expect(report.state.error).toContain("missing connections array");
   });
 
+  it("serves the stale snapshot when a connection entry is malformed", async () => {
+    writeCachedProviders([cachedOmniRouteQuota()]);
+    const request = gatewayFetch({
+      "/api/providers": {
+        connections: [{ provider: "cursor", isActive: true }],
+      },
+    });
+    const adapter = createOmniRouteAdapter({
+      fetch: request,
+      environment: ENV,
+    });
+
+    const report = await adapter.fetchQuota(OPTIONS);
+
+    expect(report.state.status).toBe("stale");
+    expect(report.source).toBe("cache");
+    expect(report.windows.map((window) => window.id)).toEqual([
+      "seat:seat_one:total",
+    ]);
+    expect(report.state.error).toContain("malformed connection");
+  });
+
   it("sends the API key as a bearer token and never leaks it into errors", async () => {
     const request = vi.fn(async () =>
       jsonResponse({ error: `denied for ${API_KEY}` }, 500),

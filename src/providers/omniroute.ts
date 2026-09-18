@@ -116,10 +116,15 @@ export function createOmniRouteAdapter(
     const seats: OmniRouteConnection[] = [];
     for (const raw of connections) {
       const record = objectValue(raw);
-      if (!record) continue;
+      if (!record) {
+        throw new Error("providers response contains malformed connection");
+      }
       const id = stringValue(record.id);
       const provider = stringValue(record.provider);
-      if (!id || !provider || !CURSOR_SEAT_PROVIDERS[provider]) continue;
+      if (!id || !provider) {
+        throw new Error("providers response contains malformed connection");
+      }
+      if (!CURSOR_SEAT_PROVIDERS[provider]) continue;
       if (record.isActive === false || record.is_active === false) continue;
       seats.push({
         id,
