@@ -186,6 +186,9 @@ export function createOmniRouteAdapter(
         const usage = await fetchSeatUsage(seat.id);
         windows.push(...seatWindows(slug, usage));
       } catch (error) {
+        if (error instanceof OmniRouteRateLimitError) {
+          return gatewayFailure(error, attempts);
+        }
         // A seat that cannot be read still gets named: its scope reports
         // unknown headroom instead of silently disappearing from the pool view.
         seatErrors.push(`${slug}: ${errorMessage(error, apiKey())}`);
@@ -270,7 +273,16 @@ export function createOmniRouteAdapter(
     }
     const cached = readCachedProvider("omniroute");
     if (cached) {
-      return staleFromCache(cached, message, sourceNames(attempts), attempts);
+      const stale = staleFromCache(
+        cached,
+        message,
+        sourceNames(attempts),
+        attempts,
+      );
+      if (error instanceof OmniRouteRateLimitError) {
+        stale.state.retryAfter = error.retryAfter;
+      }
+      return stale;
     }
     return failedProvider({
       provider: "omniroute",
@@ -338,8 +350,16 @@ function seatWindows(
   const windows: QuotaWindow[] = [];
   for (const [key, raw] of Object.entries(quotas)) {
     const quota = objectValue(raw);
-    if (!quota || quota.unlimited === true) continue;
     const keySlug = normalizeKey(key);
+    if (!quota) {
+      windows.push({
+        id: `seat:${slug}:${keySlug}`,
+        label: `${slug} ${key}`,
+        kind: "unknown",
+      });
+      continue;
+    }
+    if (quota.unlimited === true) continue;
     const percentUsed = quotaPercentUsed(quota);
     const resetsAt = isoValue(quota.resetAt);
     const isUsd =

@@ -188,7 +188,10 @@ function availabilityFor(
   return availability.find(
     (candidate) =>
       candidate.scope === "all_models" || candidate.scope === "all_products",
-  );
+  ) ??
+    (entry.provider === "omniroute"
+      ? availability.find((candidate) => candidate.scope.startsWith("seat:"))
+      : undefined);
 }
 
 function unmatchedModelWindowIds(

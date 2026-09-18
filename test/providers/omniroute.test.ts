@@ -225,6 +225,7 @@ describe("OmniRoute provider", () => {
         quotas: {
           Total: { used: 1, total: 10, remainingPercentage: 90 },
           Mystery: { used: 3, total: 10, remainingPercentage: 70 },
+          Broken: null,
         },
       },
     });
@@ -239,6 +240,7 @@ describe("OmniRoute provider", () => {
     expect(withSemantics.quotaSemantics?.status).toBe("partial");
     expect(withSemantics.quotaSemantics?.unresolvedWindowIds).toEqual([
       "seat:seat:mystery",
+      "seat:seat:broken",
     ]);
     const seat = withSemantics.quotaSemantics?.effectiveAvailability[0];
     expect(seat?.status).toBe("unknown");
@@ -332,6 +334,25 @@ describe("OmniRoute provider", () => {
       `Bearer ${API_KEY}`,
     );
     expect(report.state.error).not.toContain(API_KEY);
+  });
+
+  it("propagates per-seat rate limits with their retry deadline", async () => {
+    const request = gatewayFetch({
+      "/api/providers": CONNECTIONS,
+      "/api/usage/conn-seat-1": new Response(null, {
+        status: 429,
+        headers: { "retry-after": "Wed, 17 Sep 2026 00:05:00 GMT" },
+      }),
+    });
+    const adapter = createOmniRouteAdapter({
+      fetch: request,
+      environment: ENV,
+    });
+
+    const report = await adapter.fetchQuota(OPTIONS);
+
+    expect(report.state.status).toBe("rate_limited");
+    expect(report.state.retryAfter).toBe("2026-09-17T00:05:00.000Z");
   });
 
   it("reports the environment source in inspectAuth", async () => {

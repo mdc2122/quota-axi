@@ -10,6 +10,7 @@ const originalCursor = PROVIDERS.cursor;
 const originalCopilot = PROVIDERS.copilot;
 const originalGrok = PROVIDERS.grok;
 const originalKimi = PROVIDERS.kimi;
+const originalOmniRoute = PROVIDERS.omniroute;
 
 afterEach(() => {
   PROVIDERS.claude = originalClaude;
@@ -18,6 +19,7 @@ afterEach(() => {
   PROVIDERS.copilot = originalCopilot;
   PROVIDERS.grok = originalGrok;
   PROVIDERS.kimi = originalKimi;
+  PROVIDERS.omniroute = originalOmniRoute;
   process.exitCode = undefined;
 });
 
@@ -151,7 +153,7 @@ describe("models command", () => {
     });
 
     const json = JSON.parse(await capture(["models", "--json"]));
-    expect(json.models).toHaveLength(12);
+    expect(json.models).toHaveLength(14);
     expect(process.exitCode).toBe(1);
 
     process.exitCode = undefined;
