@@ -414,16 +414,22 @@ function quotaPercentUsed(quota: Record<string, unknown>): number | undefined {
 /**
  * Seat slugs name scopes and window ids, so they must be unique and stable:
  * prefer the connection name (or email), fall back to the connection id, and
- * suffix collisions deterministically in listed order.
+ * suffix collisions in stable connection-id order.
  */
 function assignSeatSlugs(seats: OmniRouteConnection[]): Map<string, string> {
   const slugs = new Map<string, string>();
-  const taken = new Map<string, number>();
+  const groups = new Map<string, OmniRouteConnection[]>();
   for (const seat of seats) {
     const base = normalizeKey(seat.name ?? seat.email ?? "") || seat.id;
-    const seen = taken.get(base) ?? 0;
-    taken.set(base, seen + 1);
-    slugs.set(seat.id, seen === 0 ? base : `${base}-${seen + 1}`);
+    const group = groups.get(base) ?? [];
+    group.push(seat);
+    groups.set(base, group);
+  }
+  for (const [base, group] of groups) {
+    group.sort((left, right) => left.id.localeCompare(right.id));
+    group.forEach((seat, index) => {
+      slugs.set(seat.id, index === 0 ? base : `${base}-${index + 1}`);
+    });
   }
   return slugs;
 }

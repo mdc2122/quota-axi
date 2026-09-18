@@ -214,6 +214,53 @@ describe("OmniRoute provider", () => {
     );
   });
 
+  it("keeps duplicate seat slugs tied to connection ids when inventory order changes", async () => {
+    const usage = (remainingPercentage: number) => ({
+      quotas: {
+        Total: { remainingPercentage, resetAt: "2026-10-01T00:00:00.000Z" },
+      },
+    });
+    const firstRequest = gatewayFetch({
+      "/api/providers": {
+        connections: [
+          { id: "conn-b", provider: "cursor", name: "Shared", isActive: true },
+          { id: "conn-a", provider: "cursor", name: "Shared", isActive: true },
+        ],
+      },
+      "/api/usage/conn-a": usage(80),
+      "/api/usage/conn-b": usage(20),
+    });
+    const secondRequest = gatewayFetch({
+      "/api/providers": {
+        connections: [
+          { id: "conn-a", provider: "cursor", name: "Shared", isActive: true },
+          { id: "conn-b", provider: "cursor", name: "Shared", isActive: true },
+        ],
+      },
+      "/api/usage/conn-a": usage(80),
+      "/api/usage/conn-b": usage(20),
+    });
+
+    const first = await createOmniRouteAdapter({
+      fetch: firstRequest,
+      environment: ENV,
+    }).fetchQuota(OPTIONS);
+    const second = await createOmniRouteAdapter({
+      fetch: secondRequest,
+      environment: ENV,
+    }).fetchQuota(OPTIONS);
+
+    const windowValues = (report: ProviderQuota) =>
+      Object.fromEntries(
+        report.windows.map((window) => [window.id, window.percentRemaining]),
+      );
+    expect(windowValues(first)).toEqual({
+      "seat:shared:total": 80,
+      "seat:shared-2:total": 20,
+    });
+    expect(windowValues(second)).toEqual(windowValues(first));
+  });
+
   it("leaves unfamiliar quota keys unresolved instead of folding them into the bound", async () => {
     const request = gatewayFetch({
       "/api/providers": {
