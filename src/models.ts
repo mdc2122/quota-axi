@@ -168,7 +168,7 @@ function modelRecord(
     id: entry.id,
     label: entry.label,
     intelligence: entry.intelligence,
-    quotaScopes: effective ? [effective.scope] : [],
+    quotaScopes: quotaScopesFor(entry, provider, effective),
     ...(effective ? { effective } : {}),
     state: stateSummary(provider),
   };
@@ -185,15 +185,42 @@ function availabilityFor(
     );
     if (found) return found;
   }
-  return (
-    availability.find(
+  if (entry.provider === "omniroute") {
+    // Every seat is an independent Cursor account pool the model can draw on,
+    // so the row's evidence is the most constrained seat - the conservative
+    // bound that never overstates headroom - while quotaScopes names them all.
+    const seats = availability.filter(
       (candidate) =>
-        candidate.scope === "all_models" || candidate.scope === "all_products",
-    ) ??
-    (entry.provider === "omniroute"
-      ? availability.find((candidate) => candidate.scope.startsWith("seat:"))
-      : undefined)
+        candidate.scope.startsWith("seat:") &&
+        candidate.effectivePercentRemaining !== undefined,
+    );
+    if (seats.length === 0) return undefined;
+    return seats.reduce((lowest, candidate) =>
+      (candidate.effectivePercentRemaining ?? 0) <
+      (lowest.effectivePercentRemaining ?? 0)
+        ? candidate
+        : lowest,
+    );
+  }
+  return availability.find(
+    (candidate) =>
+      candidate.scope === "all_models" || candidate.scope === "all_products",
   );
+}
+
+function quotaScopesFor(
+  entry: ModelCatalogEntry,
+  provider: ProviderQuota,
+  effective: EffectiveAvailability | undefined,
+): string[] {
+  if (entry.provider === "omniroute") {
+    // A model row must represent every seat pool, not silently collapse to the
+    // first one: dispatch reads these scopes to see the whole Cursor pool.
+    return (provider.quotaSemantics?.effectiveAvailability ?? [])
+      .map((candidate) => candidate.scope)
+      .filter((scope) => scope.startsWith("seat:"));
+  }
+  return effective ? [effective.scope] : [];
 }
 
 function unmatchedModelWindowIds(

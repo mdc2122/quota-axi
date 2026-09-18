@@ -140,6 +140,51 @@ describe("models command", () => {
     expect(json.unmatchedWindowIds).toEqual(["claude/model:unmapped"]);
   });
 
+  it("represents every OmniRoute seat in model rows with the tightest seat as evidence", async () => {
+    PROVIDERS.omniroute = adapter({
+      provider: "omniroute",
+      label: "OmniRoute",
+      source: "api",
+      windows: [
+        {
+          id: "seat:seat_one:total",
+          label: "seat_one Total",
+          kind: "monthly",
+          percentUsed: 80,
+          percentRemaining: 20,
+          resetsAt: "2026-10-01T00:00:00.000Z",
+        },
+        {
+          id: "seat:seat_two:total",
+          label: "seat_two Total",
+          kind: "monthly",
+          percentUsed: 10,
+          percentRemaining: 90,
+          resetsAt: "2026-10-01T00:00:00.000Z",
+        },
+      ],
+      state: { status: "fresh", stale: false, sourcesTried: ["omniroute-api"] },
+    });
+
+    const json = JSON.parse(
+      await capture(["models", "--provider", "omniroute", "--json"]),
+    );
+    const gemini = json.models.find(
+      (model: { id: string }) => model.id === "cursor/gemini-3.8",
+    );
+    const grok = json.models.find(
+      (model: { id: string }) => model.id === "cursor/grok-4.6",
+    );
+    for (const model of [gemini, grok]) {
+      expect(model.quotaScopes).toEqual(["seat:seat_one", "seat:seat_two"]);
+      expect(model.effective).toMatchObject({
+        scope: "seat:seat_one",
+        status: "known",
+        effectivePercentRemaining: 20,
+      });
+    }
+  });
+
   it("fails when every catalog provider fails and rejects non-catalog scopes", async () => {
     for (const provider of ["claude", "codex", "grok", "kimi"] as const) {
       PROVIDERS[provider] = adapter(failedQuota(provider));
