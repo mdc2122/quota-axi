@@ -140,7 +140,7 @@ describe("models command", () => {
     expect(json.unmatchedWindowIds).toEqual(["claude/model:unmapped"]);
   });
 
-  it("represents every OmniRoute seat in model rows with the tightest seat as evidence", async () => {
+  it("represents every OmniRoute seat in model rows with the best usable seat as evidence", async () => {
     PROVIDERS.omniroute = adapter({
       provider: "omniroute",
       label: "OmniRoute",
@@ -178,9 +178,9 @@ describe("models command", () => {
     for (const model of [gemini, grok]) {
       expect(model.quotaScopes).toEqual(["seat:seat_one", "seat:seat_two"]);
       expect(model.effective).toMatchObject({
-        scope: "seat:seat_one",
+        scope: "seat:seat_two",
         status: "known",
-        effectivePercentRemaining: 20,
+        effectivePercentRemaining: 90,
       });
     }
   });

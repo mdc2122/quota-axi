@@ -187,19 +187,19 @@ function availabilityFor(
   }
   if (entry.provider === "omniroute") {
     // Every seat is an independent Cursor account pool the model can draw on,
-    // so the row's evidence is the most constrained seat - the conservative
-    // bound that never overstates headroom - while quotaScopes names them all.
+    // so dispatch can use the seat with the most remaining quota while
+    // quotaScopes names every pool.
     const seats = availability.filter(
       (candidate) =>
         candidate.scope.startsWith("seat:") &&
         candidate.effectivePercentRemaining !== undefined,
     );
     if (seats.length === 0) return undefined;
-    return seats.reduce((lowest, candidate) =>
-      (candidate.effectivePercentRemaining ?? 0) <
-      (lowest.effectivePercentRemaining ?? 0)
+    return seats.reduce((best, candidate) =>
+      (candidate.effectivePercentRemaining ?? 0) >
+      (best.effectivePercentRemaining ?? 0)
         ? candidate
-        : lowest,
+        : best,
     );
   }
   return availability.find(
