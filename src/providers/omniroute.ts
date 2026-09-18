@@ -109,9 +109,10 @@ export function createOmniRouteAdapter(
   async function listCursorSeats(): Promise<OmniRouteConnection[]> {
     const data = await gatewayGet("/api/providers");
     const body = objectValue(data);
-    const connections = Array.isArray(body?.connections)
-      ? (body.connections as unknown[])
-      : [];
+    if (!body || !Array.isArray(body.connections)) {
+      throw new Error("providers response missing connections array");
+    }
+    const connections = body.connections as unknown[];
     const seats: OmniRouteConnection[] = [];
     for (const raw of connections) {
       const record = objectValue(raw);
