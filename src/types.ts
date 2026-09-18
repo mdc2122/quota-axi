@@ -343,7 +343,7 @@ export type IntelligenceBucket = "high" | "medium" | "low";
 
 /** Native-provider model knowledge used by the `models` evidence join. */
 export type ModelCatalogEntry = {
-  provider: "claude" | "codex" | "grok" | "kimi";
+  provider: "claude" | "codex" | "grok" | "kimi" | "omniroute";
   id: string;
   label: string;
   intelligence: IntelligenceBucket;
