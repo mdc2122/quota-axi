@@ -4,6 +4,7 @@ import { claudeAdapter } from "./claude.js";
 import { codexAdapter } from "./codex.js";
 import { copilotAdapter } from "./copilot.js";
 import { cursorAdapter } from "./cursor.js";
+import { devinAdapter } from "./devin.js";
 import { grokAdapter } from "./grok.js";
 import { kimiAdapter } from "./kimi.js";
 import { omnirouteAdapter } from "./omniroute.js";
@@ -26,6 +27,7 @@ export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
   agy: agyAdapter,
   alibaba: alibabaAdapter,
   "opencode-go": opencodeGoAdapter,
+  devin: devinAdapter,
   omniroute: omnirouteAdapter,
 };
 
