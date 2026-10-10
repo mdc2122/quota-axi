@@ -9,6 +9,7 @@ export type ProviderId =
   | "agy"
   | "alibaba"
   | "opencode-go"
+  | "devin"
   | "omniroute";
 
 export const PROVIDER_IDS = [
@@ -22,6 +23,7 @@ export const PROVIDER_IDS = [
   "agy",
   "alibaba",
   "opencode-go",
+  "devin",
   "omniroute",
 ] as const satisfies readonly ProviderId[];
 

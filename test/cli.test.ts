@@ -24,6 +24,7 @@ const originalZaiProvider = PROVIDERS.zai;
 const originalAgyProvider = PROVIDERS.agy;
 const originalAlibabaProvider = PROVIDERS.alibaba;
 const originalOpenCodeGoProvider = PROVIDERS["opencode-go"];
+const originalDevinProvider = PROVIDERS.devin;
 const originalXdgCacheHome = process.env.XDG_CACHE_HOME;
 const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 const originalCodexHome = process.env.CODEX_HOME;
@@ -40,6 +41,7 @@ afterEach(() => {
   PROVIDERS.agy = originalAgyProvider;
   PROVIDERS.alibaba = originalAlibabaProvider;
   PROVIDERS["opencode-go"] = originalOpenCodeGoProvider;
+  PROVIDERS.devin = originalDevinProvider;
   if (originalXdgCacheHome === undefined) delete process.env.XDG_CACHE_HOME;
   else process.env.XDG_CACHE_HOME = originalXdgCacheHome;
   if (originalClaudeConfigDir === undefined)
@@ -66,6 +68,7 @@ describe("CLI flag parsing", () => {
       "agy",
       "alibaba",
       "opencode-go",
+      "devin",
       "omniroute",
     ]);
   });
@@ -104,6 +107,7 @@ describe("CLI flag parsing", () => {
           "agy",
           "alibaba",
           "opencode-go",
+          "devin",
           "omniroute",
         ],
         json: true,
@@ -886,6 +890,7 @@ describe("default TOON decision blocks", () => {
     PROVIDERS.agy = providerWithQuota(unavailableAgyQuota());
     PROVIDERS.alibaba = providerWithQuota(freshAlibabaQuota());
     PROVIDERS["opencode-go"] = providerWithQuota(freshOpenCodeGoQuota());
+    PROVIDERS.devin = providerWithQuota(signedOutDevinQuota());
     PROVIDERS.omniroute = providerWithQuota(unavailableOmniRouteQuota());
 
     const output = await capture([]);
@@ -901,6 +906,7 @@ describe("default TOON decision blocks", () => {
       "codex",
       "copilot",
       "cursor",
+      "devin",
       "grok",
       "kimi",
       "omniroute",
@@ -1262,6 +1268,7 @@ describe("CLI plumbing via the axi SDK", () => {
     PROVIDERS.agy = providerWithAuth("agy", "Antigravity");
     PROVIDERS.alibaba = providerWithAuth("alibaba", "Alibaba Coding Plan");
     PROVIDERS["opencode-go"] = providerWithAuth("opencode-go", "OpenCode Go");
+    PROVIDERS.devin = providerWithAuth("devin", "Devin");
 
     const output = await capture(["--allow-keychain-prompt", "auth"]);
     expect(output).toContain(
@@ -1820,6 +1827,21 @@ function freshOpenCodeGoQuota(): ProviderQuota {
       stale: false,
       refreshedAt: "2026-07-06T18:10:00Z",
       sourcesTried: ["opencode:auth.json"],
+    },
+  };
+}
+
+function signedOutDevinQuota(): ProviderQuota {
+  return {
+    provider: "devin",
+    label: "Devin",
+    source: "api",
+    windows: [],
+    state: {
+      status: "auth_required",
+      stale: false,
+      error: "devin_credential_unavailable",
+      sourcesTried: ["cliproxy:devin"],
     },
   };
 }

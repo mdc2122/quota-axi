@@ -159,7 +159,103 @@ function semanticsFor(
       return alibabaSemantics(provider.windows, generatedAt);
     case "opencode-go":
       return opencodeGoSemantics(provider.windows, generatedAt);
+    case "devin":
+      return devinSemantics(provider.windows, generatedAt);
   }
+}
+
+/**
+ * Devin's seat-management status reports a daily and a weekly included-usage
+ * quota for the plan; together they bound metered usage, so `all_models` is
+ * the minimum across them. `plan_period` is the subscription's renewal date,
+ * not a meter, and bounds nothing.
+ *
+ * The same response marks some model families promotional until an end time
+ * (`promo:<family>`). The service reports no meter for that usage, and those
+ * families stayed usable while the plan's weekly quota read 100% used, so
+ * while a promotion runs the plan windows bound only the non-promotional
+ * models: the family's scope publishes no effective percentage, and a zeroed
+ * plan window makes `all_models` a bound conflict rather than an exhaustion
+ * claim over models the promotion still serves. After the end time the family
+ * is metered again and the plan bound covers every model.
+ */
+function devinSemantics(
+  windows: QuotaWindow[],
+  generatedAt: string,
+): QuotaSemantics {
+  const plan = windows.filter(({ id }) => id === "daily" || id === "weekly");
+  const promotions = windows.filter(({ id }) => id.startsWith("promo:"));
+  const unresolved = windows.filter(
+    (window) =>
+      !plan.includes(window) &&
+      !promotions.includes(window) &&
+      window.id !== "plan_period",
+  );
+  const unresolvedIds = unresolved.map(({ id }) => id);
+  const generatedAtMs = Date.parse(generatedAt);
+  const running = promotions.filter(({ resetsAt }) => {
+    const endsAtMs = Date.parse(resetsAt ?? "");
+    return Number.isFinite(endsAtMs) && endsAtMs > generatedAtMs;
+  });
+  const exhausted = plan.filter(
+    ({ percentRemaining }) => percentRemaining === 0,
+  );
+  const effectiveAvailability: EffectiveAvailability[] = [];
+  if (plan.length > 0) {
+    if (unresolved.length > 0) {
+      effectiveAvailability.push(
+        unresolvedAvailability("all_models", plan, unresolvedIds),
+      );
+    } else if (running.length > 0 && exhausted.length > 0) {
+      const conflict = {
+        exhaustedWindowIds: exhausted.map(({ id }) => id),
+        liveWindowIds: running.map(({ id }) => id),
+      };
+      const unmeasurableWindowIds = [
+        ...conflict.exhaustedWindowIds,
+        ...conflict.liveWindowIds,
+      ];
+      effectiveAvailability.push({
+        scope: "all_models",
+        status: "unknown",
+        boundedBy: plan.map(({ id }) => id),
+        boundConflict: conflict,
+        pace: summarizeEffectivePace(plan),
+        runway: { status: "unknown", unmeasurableWindowIds },
+        selection: { status: "unknown", unmeasurableWindowIds },
+      });
+    } else {
+      effectiveAvailability.push(availability("all_models", plan, generatedAt));
+    }
+  }
+  for (const promotion of promotions) {
+    if (running.includes(promotion)) {
+      effectiveAvailability.push({
+        scope: promotion.id,
+        status: "unknown",
+        boundedBy: [promotion.id],
+        runway: { status: "unknown", unmeasurableWindowIds: [promotion.id] },
+        selection: { status: "unknown", unmeasurableWindowIds: [promotion.id] },
+      });
+    } else if (plan.length > 0) {
+      effectiveAvailability.push(
+        unresolved.length > 0
+          ? unresolvedAvailability(promotion.id, plan, unresolvedIds)
+          : availability(promotion.id, plan, generatedAt),
+      );
+    }
+  }
+  const description =
+    "Devin's daily and weekly included-usage quotas jointly bound metered usage, so all_models effective remaining is the minimum across them. A promo:<family> scope is a model family the service marks promotional until its window's resetsAt; the service reports no meter for it, so until then the plan quotas bound only non-promotional models: the family publishes no effective percentage, and a plan quota reading 0 is reported as an all_models bound conflict instead of exhaustion. Once the promotion ends, the plan quotas bound every model, that family included. plan_period carries the subscription renewal date and bounds nothing.";
+  if (unresolved.length > 0) {
+    return {
+      status: "partial",
+      description,
+      effectiveAvailability,
+      unresolvedWindowIds: unresolvedIds,
+    };
+  }
+  return knownSemantics(effectiveAvailability, description);
 }
 
 /**
