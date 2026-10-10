@@ -166,17 +166,18 @@ function semanticsFor(
 
 /**
  * Devin's seat-management status reports a daily and a weekly included-usage
- * quota for the plan; together they bound metered usage across every model the
- * account serves, so `all_models` is the minimum across them. `plan_period`
- * is the subscription's renewal date, not a meter, and bounds nothing.
+ * quota for the plan; together they bound metered usage, so `all_models` is
+ * the minimum across them. `plan_period` is the subscription's renewal date,
+ * not a meter, and bounds nothing.
  *
  * The same response marks some model families promotional until an end time
  * (`promo:<family>`). The service reports no meter for that usage, and those
  * families stayed usable while the plan's weekly quota read 100% used, so
- * while a promotion runs the plan windows are not evidence about that family:
- * its scope publishes no effective percentage rather than inheriting the
- * plan's exhaustion. After the end time the family is metered again and its
- * scope is the plan bound itself.
+ * while a promotion runs the plan windows bound only the non-promotional
+ * models: the family's scope publishes no effective percentage, and a zeroed
+ * plan window makes `all_models` a bound conflict rather than an exhaustion
+ * claim over models the promotion still serves. After the end time the family
+ * is metered again and the plan bound covers every model.
  */
 function devinSemantics(
   windows: QuotaWindow[],
@@ -191,18 +192,44 @@ function devinSemantics(
       window.id !== "plan_period",
   );
   const unresolvedIds = unresolved.map(({ id }) => id);
+  const generatedAtMs = Date.parse(generatedAt);
+  const running = promotions.filter(({ resetsAt }) => {
+    const endsAtMs = Date.parse(resetsAt ?? "");
+    return Number.isFinite(endsAtMs) && endsAtMs > generatedAtMs;
+  });
+  const exhausted = plan.filter(
+    ({ percentRemaining }) => percentRemaining === 0,
+  );
   const effectiveAvailability: EffectiveAvailability[] = [];
   if (plan.length > 0) {
-    effectiveAvailability.push(
-      unresolved.length > 0
-        ? unresolvedAvailability("all_models", plan, unresolvedIds)
-        : availability("all_models", plan, generatedAt),
-    );
+    if (unresolved.length > 0) {
+      effectiveAvailability.push(
+        unresolvedAvailability("all_models", plan, unresolvedIds),
+      );
+    } else if (running.length > 0 && exhausted.length > 0) {
+      const conflict = {
+        exhaustedWindowIds: exhausted.map(({ id }) => id),
+        liveWindowIds: running.map(({ id }) => id),
+      };
+      const unmeasurableWindowIds = [
+        ...conflict.exhaustedWindowIds,
+        ...conflict.liveWindowIds,
+      ];
+      effectiveAvailability.push({
+        scope: "all_models",
+        status: "unknown",
+        boundedBy: plan.map(({ id }) => id),
+        boundConflict: conflict,
+        pace: summarizeEffectivePace(plan),
+        runway: { status: "unknown", unmeasurableWindowIds },
+        selection: { status: "unknown", unmeasurableWindowIds },
+      });
+    } else {
+      effectiveAvailability.push(availability("all_models", plan, generatedAt));
+    }
   }
-  const generatedAtMs = Date.parse(generatedAt);
   for (const promotion of promotions) {
-    const endsAtMs = Date.parse(promotion.resetsAt ?? "");
-    if (Number.isFinite(endsAtMs) && endsAtMs > generatedAtMs) {
+    if (running.includes(promotion)) {
       effectiveAvailability.push({
         scope: promotion.id,
         status: "unknown",
@@ -219,7 +246,7 @@ function devinSemantics(
     }
   }
   const description =
-    "Devin's daily and weekly included-usage quotas jointly bound metered usage across every model the account serves, so all_models effective remaining is the minimum across them. A promo:<family> scope is a model family the service marks promotional until its window's resetsAt; the service reports no meter for it, so until then it publishes no effective percentage instead of inheriting the plan quotas, and afterwards it is bounded by them. plan_period carries the subscription renewal date and bounds nothing.";
+    "Devin's daily and weekly included-usage quotas jointly bound metered usage, so all_models effective remaining is the minimum across them. A promo:<family> scope is a model family the service marks promotional until its window's resetsAt; the service reports no meter for it, so until then the plan quotas bound only non-promotional models: the family publishes no effective percentage, and a plan quota reading 0 is reported as an all_models bound conflict instead of exhaustion. Once the promotion ends, the plan quotas bound every model, that family included. plan_period carries the subscription renewal date and bounds nothing.";
   if (unresolved.length > 0) {
     return {
       status: "partial",

@@ -371,25 +371,45 @@ describe("Devin quota semantics", () => {
     return withQuotaSemantics(report, now).quotaSemantics;
   }
 
-  it("bounds all models by the plan windows but does not mark a running promotion exhausted", async () => {
+  it("reports a spent plan quota as a bound conflict, not exhaustion, while a promotion runs", async () => {
     const semantics = await recordedReport("2026-10-10T01:00:00.000Z");
     expect(semantics?.status).toBe("known");
-    expect(
-      semantics?.effectiveAvailability.find(
-        ({ scope }) => scope === "all_models",
-      ),
-    ).toMatchObject({
-      status: "known",
-      effectivePercentRemaining: 0,
+    const allModels = semantics?.effectiveAvailability.find(
+      ({ scope }) => scope === "all_models",
+    );
+    expect(allModels).toMatchObject({
+      status: "unknown",
       boundedBy: ["daily", "weekly"],
-      limitingWindowIds: ["weekly"],
+      boundConflict: {
+        exhaustedWindowIds: ["weekly"],
+        liveWindowIds: expect.arrayContaining([
+          "promo:swe-2",
+          "promo:gemini-3-8-flash",
+        ]),
+      },
+      runway: { status: "unknown" },
+      selection: { status: "unknown" },
     });
+    expect(allModels?.effectivePercentRemaining).toBeUndefined();
     const swe2 = semantics?.effectiveAvailability.find(
       ({ scope }) => scope === "promo:swe-2",
     );
     expect(swe2).toMatchObject({ status: "unknown" });
     expect(swe2?.effectivePercentRemaining).toBeUndefined();
     expect(swe2?.runway?.status).toBe("unknown");
+  });
+
+  it("bounds every model by the plan windows once no promotion runs", async () => {
+    const semantics = await recordedReport("2027-06-01T00:00:00.000Z");
+    const allModels = semantics?.effectiveAvailability.find(
+      ({ scope }) => scope === "all_models",
+    );
+    expect(allModels).toMatchObject({
+      status: "known",
+      effectivePercentRemaining: 0,
+      limitingWindowIds: ["weekly"],
+    });
+    expect(allModels?.boundConflict).toBeUndefined();
   });
 
   it("bounds a family by the plan windows once its promotion has ended", async () => {
